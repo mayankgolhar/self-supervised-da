@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from data.jigsaw_dataset import JigsawDataset, JigsawTestDataset
-from data.rotate_dataset import RotateDataset, RotateTestDataset
+from data.rotate_dataset import RotateDataset#, RotateTestDataset
 from data.concat_dataset import ConcatDataset
 
 class Subset(torch.utils.data.Dataset):
@@ -37,8 +37,8 @@ def get_train_val_dataloader(args):
             img_transformer = get_rot_train_transformers(args)
             train_dataset = RotateDataset(dname, split='train', val_size=args.val_size,
                     img_transformer=img_transformer, rot_classes=args.aux_classes, bias_whole_image=args.bias_whole_image)
-            val_dataset = RotateTestDataset(dname, split='val', val_size=args.val_size,
-                img_transformer=get_val_transformer(args), rot_classes=args.aux_classes)
+            val_dataset = RotateDataset(dname, split='val', val_size=args.val_size,
+                    img_transformer=get_val_transformer(args), rot_classes=args.aux_classes, bias_whole_image=args.bias_whole_image)
 
         if limit:
             train_dataset = Subset(train_dataset, limit)
@@ -48,8 +48,8 @@ def get_train_val_dataloader(args):
 
     dataset = ConcatDataset(datasets)
     val_dataset = ConcatDataset(val_datasets)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True, drop_last=False)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=True, drop_last=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True, drop_last=False)
     return loader, val_loader
 
 def get_target_dataloader(args):
@@ -69,22 +69,22 @@ def get_target_dataloader(args):
             shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
     return loader
 
-def get_test_dataloader(args):
-    img_tr = get_val_transformer(args)
-    name = args.name
-    if args.type == 'jigsaw':
-        val_dataset = JigsawTestDataset(name, split='test',
-                img_transformer=img_tr, jig_classes=args.aux_classes)
-    elif args.type == 'rotate':
-        val_dataset = RotateTestDataset(name, split='test',
-                img_transformer=img_tr, rot_classes=args.aux_classes)
+# def get_test_dataloader(args):
+#     img_tr = get_val_transformer(args)
+#     name = args.name
+#     if args.type == 'jigsaw':
+#         val_dataset = JigsawTestDataset(name, split='test',
+#                 img_transformer=img_tr, jig_classes=args.aux_classes)
+#     elif args.type == 'rotate':
+#         val_dataset = RotateTestDataset(name, split='test',
+#                 img_transformer=img_tr, rot_classes=args.aux_classes)
 
-    if args.limit and len(val_dataset) > args.limit:
-        val_dataset = Subset(val_dataset, args.limit)
-        print("Using %d subset of dataset" % args.limit)
-    dataset = ConcatDataset([val_dataset])
-    loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True, drop_last=False)
-    return loader
+#     if args.limit and len(val_dataset) > args.limit:
+#         val_dataset = Subset(val_dataset, args.limit)
+#         print("Using %d subset of dataset" % args.limit)
+#     dataset = ConcatDataset([val_dataset])
+#     loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True, drop_last=False)
+#     return loader
 
 def get_jig_train_transformers(args):
     size = args.img_transform.random_resize_crop.size

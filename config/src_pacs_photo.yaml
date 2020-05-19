@@ -13,7 +13,7 @@ datasets:
     src:
         type: 'jigsaw'
         name: ['art_painting', 'cartoon', 'sketch']
-        batch_size: 128
+        batch_size: 1
         num_workers: 4
         limit: false
         val_size: 0.1
@@ -34,7 +34,7 @@ datasets:
         type: 'jigsaw'
         name: 'photo'
         split: train
-        batch_size: 128
+        batch_size: 1
         num_workers: 4
         limit: false
         aux_classes: 30
@@ -55,7 +55,7 @@ datasets:
         type: 'jigsaw'
         name: 'photo'
         split: test
-        batch_size: 128
+        batch_size: 1
         num_workers: 4
         limit: false
         aux_classes: 30

@@ -6,7 +6,7 @@ from utils.utils import get_args, get_logger
 from models.aux_model import AuxModel
 from data.data_loader import get_train_val_dataloader
 from data.data_loader import get_target_dataloader
-from data.data_loader import get_test_dataloader
+import wandb
 
 def main():
     args = get_args()
@@ -19,6 +19,11 @@ def main():
     # logging to the file and stdout
     logger = get_logger(config.log_dir, config.exp_name)
     
+    # Intialize wandb model
+    run = wandb.init(project="SemiSupervised", config=args)
+    run.save()
+    args.run_name = wandb.run.name
+
     # fix random seed to reproduce results
     random.seed(config.random_seed)
     logger.info('Random seed: {:d}'.format(config.random_seed))
@@ -29,16 +34,17 @@ def main():
         raise ValueError("Unknown method: %s" % config.method)
 
     src_loader, val_loader = get_train_val_dataloader(config.datasets.src)
-    test_loader = get_test_dataloader(config.datasets.test)
+    # test_loader = get_test_dataloader(config.datasets.test)
+    test_loader = None
 
     tar_loader = None
-    if config.datasets.get('tar', None):
-        tar_loader = get_target_dataloader(config.datasets.tar)
+    # if config.datasets.get('tar', None):
+    #     tar_loader = get_target_dataloader(config.datasets.tar)
 
     if config.mode == 'train':
         model.train(src_loader, tar_loader, val_loader, test_loader)
-    elif config.mode == 'test':
-        model.test(test_loader)
+    # elif config.mode == 'test':
+    #     model.test(test_loader)
 
 if __name__ == '__main__':
     main()

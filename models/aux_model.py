@@ -20,6 +20,7 @@ from utils.utils import to_device
 
 # summary
 from tensorboardX import SummaryWriter
+import wandb
 
 class AuxModel:
 
@@ -33,6 +34,7 @@ class AuxModel:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = get_aux_net(args.network.arch)(aux_classes=args.aux_classes + 1, classes=args.n_classes)
         self.model = self.model.to(self.device)
+        wandb.watch(self.model)
 
         if args.mode == 'train':
             # set up optimizer, lr scheduler and loss functions
@@ -62,12 +64,12 @@ class AuxModel:
     def train(self, src_loader, tar_loader, val_loader, test_loader):
 
         num_batches = len(src_loader)
-        print_freq = max(num_batches // self.args.training.num_print_epoch, 1)
+        print_freq = 1 #max(num_batches // self.args.training.num_print_epoch, 1)
         i_iter = self.start_iter
         start_epoch = i_iter // num_batches
         num_epochs = self.args.training.num_epochs
         best_acc = 0
-        for epoch in range(start_epoch, num_epochs):
+        for epoch in range(start_epoch, start_epoch + num_epochs):
             self.model.train()
             batch_time = AverageMeter()
             losses = AverageMeter()
@@ -75,10 +77,11 @@ class AuxModel:
             # adjust learning rate
             self.scheduler.step()
 
-            for it, (src_batch, tar_batch) in enumerate(zip(src_loader, itertools.cycle(tar_loader))):
+            for it, src_batch in enumerate(src_loader):
                 t = time.time()
 
                 self.optimizer.zero_grad()
+
                 if isinstance(src_batch, list):
                     src = src_batch[0] # data, dataset_idx
                 else:
@@ -100,21 +103,18 @@ class AuxModel:
                 else:
                     src_class_loss = self.class_loss_func(src_class_logits, src_cls_lbls)
 
-                tar = to_device(tar_batch, self.device)
-                tar_imgs = tar['images']
-                tar_aux_lbls = tar['aux_labels']
-                tar_aux_logits, tar_class_logits = self.model(tar_imgs)
-                tar_aux_loss = self.class_loss_func(tar_aux_logits, tar_aux_lbls)
-                tar_entropy_loss = self.entropy_loss(tar_class_logits[tar_aux_lbls==0])
-
                 loss = src_class_loss + src_aux_loss * self.args.training.src_aux_weight
-                loss += tar_aux_loss * self.args.training.tar_aux_weight
-                loss += tar_entropy_loss * self.args.training.tar_entropy_weight
 
                 loss.backward()
                 self.optimizer.step()
 
                 losses.update(loss.item(), src_imgs.size(0))
+                
+                _, cls_pred = src_class_logits.max(dim=1)
+                _, aux_pred = src_aux_logits.max(dim=1)
+
+                class_acc = torch.sum(cls_pred == src_cls_lbls).to(dtype=torch.float)/src_imgs.size(0)
+                aux_acc = torch.sum(aux_pred == src_aux_lbls).to(dtype=torch.float)/src_imgs.size(0)
 
                 # measure elapsed time
                 batch_time.update(time.time() - t)
@@ -122,31 +122,41 @@ class AuxModel:
                 i_iter += 1
 
                 if i_iter % print_freq == 0:
-                    print_string = 'Epoch {:>2} | iter {:>4} | src_class: {:.3f} | src_aux: {:.3f} | tar_entropy: {:.3f} | tar_aux: {:.3f} |{:4.2f} s/it'
+                    print_string = 'Epoch {:>2} | iter {:>4} | src_aux : {:.3f} | src_class : {:.3f} |class_acc: {:.3f} | aux_acc: {:.3f} | {:4.2f} s/it'
                     self.logger.info(print_string.format(epoch, i_iter,
                         src_aux_loss.item(),
                         src_class_loss.item(),
-                        tar_entropy_loss.item(),
-                        tar_aux_loss.item(),
+                        class_acc.item(),
+                        aux_acc.item(),
                         batch_time.avg))
                     self.writer.add_scalar('losses/src_class_loss', src_class_loss, i_iter)
                     self.writer.add_scalar('losses/src_aux_loss', src_aux_loss, i_iter)
-                    self.writer.add_scalar('losses/tar_entropy_loss', tar_entropy_loss, i_iter)
-                    self.writer.add_scalar('losses/tar_aux_loss', tar_aux_loss, i_iter)
+                    wandb.log({"epoch": epoch,
+                            "Iterations": i_iter,
+                            "train_class_loss": src_class_loss.item(),
+                            "train_aux_loss": src_aux_loss.item(),
+                            "train_class_acc" : class_acc.item(),
+                            "train_aux_acc" : aux_acc.item()})
 
-            del loss, src_class_loss, src_aux_loss, tar_aux_loss, tar_entropy_loss
+            del loss, src_class_loss, src_aux_loss
             del src_aux_logits, src_class_logits
-            del tar_aux_logits, tar_class_logits
 
             # validation
-            self.save(self.args.model_dir, i_iter)
-
             if val_loader is not None:
                 self.logger.info('validating...')
-                aux_acc, class_acc = self.test(val_loader)
+                aux_acc, class_acc, aux_loss, class_loss = self.test(val_loader)
                 self.writer.add_scalar('val/aux_acc', aux_acc, i_iter)
                 self.writer.add_scalar('val/class_acc', class_acc, i_iter)
-
+                wandb.log({"epoch": epoch,
+                            "val_class_loss": class_loss.item(),
+                            "val_aux_loss": aux_loss.item(),
+                            "val_class_acc" : class_acc,
+                            "val_aux_acc" : aux_acc})
+                 # save best model
+                if class_acc > best_acc:
+                    best_acc = class_acc
+                    self.save(self.args.model_dir, epoch)
+                    
             if test_loader is not None:
                 self.logger.info('testing...')
                 aux_acc, class_acc = self.test(test_loader)
@@ -189,6 +199,9 @@ class AuxModel:
 
         aux_correct = 0
         class_correct = 0
+        aux_loss = 0
+        class_loss = 0
+
         total = 0
 
         self.model.eval()
@@ -205,6 +218,9 @@ class AuxModel:
 
                 aux_logits, class_logits = self.model(imgs)
 
+                aux_loss += self.class_loss_func(aux_logits, aux_lbls)
+                class_loss += self.class_loss_func(class_logits, cls_lbls)
+
                 _, cls_pred = class_logits.max(dim=1)
                 _, aux_pred = aux_logits.max(dim=1)
 
@@ -214,7 +230,7 @@ class AuxModel:
 
             tt.close()
 
-        aux_acc = 100 * float(aux_correct) / total
-        class_acc = 100 * float(class_correct) / total
+        aux_acc = 100.0 * float(aux_correct) / total
+        class_acc = 100.0 * float(class_correct) / total
         self.logger.info('aux acc: {:.2f} %, class_acc: {:.2f} %'.format(aux_acc, class_acc))
-        return aux_acc, class_acc
+        return aux_acc, class_acc, aux_loss, class_loss

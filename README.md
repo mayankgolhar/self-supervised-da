@@ -44,6 +44,7 @@ For example:
 
 ```shell
 python3 main.py --config configs/rotate_pacs_photo.yaml
+set CUDA_VISIBLE_DEVICES=0 & python main.py --config config/jigsaw_uah.yaml
 ```
 
 To reproduce the results, running each experiment for three repeatitions with random seeds from `100`, `200` and `300`.

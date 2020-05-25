@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
+import pdb
 
 # custom modules
 from schedulers import get_scheduler
@@ -87,21 +88,28 @@ class AuxModel:
                 else:
                     src = src_batch
                 src = to_device(src, self.device)
+
                 src_imgs = src['images']
                 src_cls_lbls = src['class_labels']
                 src_aux_lbls = src['aux_labels']
 
-                self.optimizer.zero_grad()
-
                 src_aux_logits, src_class_logits = self.model(src_imgs)
                 src_aux_loss = self.class_loss_func(src_aux_logits, src_aux_lbls)
+
+                _, cls_pred = src_class_logits.max(dim=1)
+                _, aux_pred = src_aux_logits.max(dim=1)
 
                 # If true, the network will only try to classify the non scrambled images
                 if self.args.training.only_non_scrambled:
                     src_class_loss = self.class_loss_func(
                             src_class_logits[src_aux_lbls == 0], src_cls_lbls[src_aux_lbls == 0])
+                    true_pos_class = torch.sum(cls_pred[src_aux_lbls == 0] \
+                         == src_cls_lbls[src_aux_lbls == 0]).to(dtype=torch.float)
+                    num_samples_accu = src_cls_lbls[src_aux_lbls == 0].size(0)
                 else:
                     src_class_loss = self.class_loss_func(src_class_logits, src_cls_lbls)
+                    true_pos_class = torch.sum(cls_pred == src_cls_lbls).to(dtype=torch.float)
+                    num_samples_accu = src_imgs.size(0)
 
                 loss = src_class_loss + src_aux_loss * self.args.training.src_aux_weight
 
@@ -110,10 +118,7 @@ class AuxModel:
 
                 losses.update(loss.item(), src_imgs.size(0))
                 
-                _, cls_pred = src_class_logits.max(dim=1)
-                _, aux_pred = src_aux_logits.max(dim=1)
-
-                class_acc = torch.sum(cls_pred == src_cls_lbls).to(dtype=torch.float)/src_imgs.size(0)
+                class_acc = true_pos_class/num_samples_accu
                 aux_acc = torch.sum(aux_pred == src_aux_lbls).to(dtype=torch.float)/src_imgs.size(0)
 
                 # measure elapsed time
@@ -122,7 +127,7 @@ class AuxModel:
                 i_iter += 1
 
                 if i_iter % print_freq == 0:
-                    print_string = 'Epoch {:>2} | iter {:>4} | src_aux : {:.3f} | src_class : {:.3f} |class_acc: {:.3f} | aux_acc: {:.3f} | {:4.2f} s/it'
+                    print_string = 'Epoch {:>2} | iter {:>4} | aux_loss : {:.3f} | class_loss : {:.3f} |class_acc: {:.3f} | aux_acc: {:.3f} | {:4.2f} s/it'
                     self.logger.info(print_string.format(epoch, i_iter,
                         src_aux_loss.item(),
                         src_class_loss.item(),
@@ -207,6 +212,7 @@ class AuxModel:
         self.model.eval()
         with torch.no_grad():
             for cur_it in tt:
+                
                 data = next(val_loader_iterator)
                 if isinstance(data, list):
                     data = data[0]

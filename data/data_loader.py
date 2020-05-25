@@ -28,11 +28,11 @@ def get_train_val_dataloader(args):
     for dname in dataset_list:
         if args.type == 'jigsaw':
             img_transformer, tile_transformer = get_jig_train_transformers(args)
-            train_dataset = JigsawDataset(dname, split='train', val_size=args.val_size,
+            train_dataset = JigsawDataset(dname, split='train',
                     img_transformer=img_transformer, tile_transformer=tile_transformer,
                     jig_classes=args.aux_classes, bias_whole_image=args.bias_whole_image)
-            val_dataset = JigsawTestDataset(dname, split='val', val_size=args.val_size,
-                img_transformer=get_val_transformer(args), jig_classes=args.aux_classes)
+            val_dataset = JigsawTestDataset(dname, split='val',
+                    img_transformer=get_val_transformer(args), jig_classes=args.aux_classes)
         elif args.type == 'rotate':
             img_transformer = get_rot_train_transformers(args)
             train_dataset = RotateDataset(dname, split='train', val_size=args.val_size,

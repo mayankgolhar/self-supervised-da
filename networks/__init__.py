@@ -1,6 +1,6 @@
 from networks.caffenet import caffenet
 from networks.mnist import lenet
-from networks.resnet import resnet18, resnet50
+from networks.resnet import resnet18, resnet50, resnet101
 from networks.alexnet import alexnet
 
 nets_map = {
@@ -8,6 +8,7 @@ nets_map = {
     'alexnet': alexnet,
     'resnet18': resnet18,
     'resnet50': resnet50,
+    'resnet101' : resnet101,
     'lenet': lenet
 }
 

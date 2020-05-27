@@ -6,7 +6,9 @@ from utils.utils import get_args, get_logger
 from models.aux_model import AuxModel
 from data.data_loader import get_train_val_dataloader
 from data.data_loader import get_target_dataloader
+
 import wandb
+# from torchsummary import summary
 
 def main():
     args = get_args()
@@ -32,7 +34,7 @@ def main():
         model = AuxModel(config, logger)
     else:
         raise ValueError("Unknown method: %s" % config.method)
-
+    
     src_loader, val_loader = get_train_val_dataloader(config.datasets.src)
     # test_loader = get_test_dataloader(config.datasets.test)
     test_loader = None

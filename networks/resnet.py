@@ -83,3 +83,16 @@ def resnet50(pretrained=True, **kwargs):
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet50']), strict=False)
     return model
+
+def resnet101(pretrained=True, **kwargs):
+    """ResNet-101 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
+    if pretrained:
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']), strict=False)
+    return model
+

@@ -3,22 +3,22 @@ exp_name: jigsaw_UAH
 random_seed: 300
 mode: train
 n_classes: 3
-aux_classes: 30
+aux_classes: 100
 method: 'jigsaw'
 
 network:
-    arch: resnet50
+    arch: resnet101
 
 datasets:
     src:
         type: 'jigsaw'
         name: ['UAH']
-        batch_size: 32
+        batch_size: 16
         num_workers: 4
         limit: false
         val_size: 0.1
         bias_whole_image: 0.7
-        aux_classes: 30
+        aux_classes: 100
         img_transform:
             jitter: 0
             random_horiz_flip: 0
@@ -34,7 +34,7 @@ datasets:
 training:
     resume: ''
     num_print_epoch: 10
-    num_epochs: 30
+    num_epochs: 50
     optimizer:
         name: 'sgd'
         lr: 0.001

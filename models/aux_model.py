@@ -78,7 +78,7 @@ class AuxModel:
             # adjust learning rate
             self.scheduler.step()
 
-            for it, src_batch in enumerate(src_loader):
+            for it, (src_batch, tar_batch) in enumerate(zip(src_loader, tar_loader)):
                 t = time.time()
 
                 self.optimizer.zero_grad()
@@ -111,7 +111,16 @@ class AuxModel:
                     true_pos_class = torch.sum(cls_pred == src_cls_lbls).to(dtype=torch.float)
                     num_samples_accu = src_imgs.size(0)
 
-                loss = src_class_loss + src_aux_loss * self.args.training.src_aux_weight
+                tar = to_device(tar_batch, self.device)
+                tar_imgs = tar['images']
+                tar_aux_lbls = tar['aux_labels']
+                tar_aux_logits, _ = self.model(tar_imgs)
+                tar_aux_loss = self.class_loss_func(tar_aux_logits, tar_aux_lbls)
+
+                loss = src_class_loss + src_aux_loss * self.args.training.src_aux_weight + \
+                    tar_aux_loss * self.args.training.tar_aux_weight
+
+                aux_loss = src_aux_loss + tar_aux_loss
 
                 loss.backward()
                 self.optimizer.step()
@@ -129,21 +138,21 @@ class AuxModel:
                 if i_iter % print_freq == 0:
                     print_string = 'Epoch {:>2} | iter {:>4} | aux_loss : {:.3f} | class_loss : {:.3f} |class_acc: {:.3f} | aux_acc: {:.3f} | {:4.2f} s/it'
                     self.logger.info(print_string.format(epoch, i_iter,
-                        src_aux_loss.item(),
+                        aux_loss.item(),
                         src_class_loss.item(),
                         class_acc.item(),
                         aux_acc.item(),
                         batch_time.avg))
                     self.writer.add_scalar('losses/src_class_loss', src_class_loss, i_iter)
-                    self.writer.add_scalar('losses/src_aux_loss', src_aux_loss, i_iter)
+                    self.writer.add_scalar('losses/aux_loss', aux_loss, i_iter)
                     wandb.log({"epoch": epoch,
                             "Iterations": i_iter,
                             "train_class_loss": src_class_loss.item(),
-                            "train_aux_loss": src_aux_loss.item(),
+                            "train_aux_loss": aux_loss.item(),
                             "train_class_acc" : class_acc.item(),
                             "train_aux_acc" : aux_acc.item()})
 
-            del loss, src_class_loss, src_aux_loss
+            del loss, src_class_loss, src_aux_loss, aux_loss
             del src_aux_logits, src_class_logits
 
             # validation

@@ -28,11 +28,13 @@ def get_train_val_dataloader(args):
     for dname in dataset_list:
         if args.type == 'jigsaw':
             img_transformer, tile_transformer = get_jig_train_transformers(args)
-            train_dataset = JigsawDataset(dname, split='train',
+            train_dataset = JigsawDataset(dname, split='src',
                     img_transformer=img_transformer, tile_transformer=tile_transformer,
-                    jig_classes=args.aux_classes, bias_whole_image=args.bias_whole_image)
+                    jig_classes=args.aux_classes, bias_whole_image=args.bias_whole_image,
+                    cv_split_id = args.cv_split_id)
             val_dataset = JigsawTestDataset(dname, split='val',
-                    img_transformer=get_val_transformer(args), jig_classes=args.aux_classes)
+                    img_transformer=get_val_transformer(args), jig_classes=args.aux_classes,
+                    cv_split_id = [0])
         elif args.type == 'rotate':
             img_transformer = get_rot_train_transformers(args)
             train_dataset = RotateDataset(dname, split='train', val_size=args.val_size,
@@ -53,20 +55,22 @@ def get_train_val_dataloader(args):
     return loader, val_loader
 
 def get_target_dataloader(args):
-
     name = args.name
     if args.type == 'jigsaw':
         img_transformer, tile_transformer = get_jig_train_transformers(args)
-        dataset = JigsawDataset(name, 'train', img_transformer=img_transformer,
-                tile_transformer=tile_transformer, jig_classes=args.aux_classes,
-                bias_whole_image=args.bias_whole_image)
+        dataset = JigsawDataset(name, split='tar',
+                    img_transformer=img_transformer, tile_transformer=tile_transformer,
+                    jig_classes=args.aux_classes, bias_whole_image=args.bias_whole_image,
+                    cv_split_id = args.cv_split_id)
+        
     elif args.type == 'rotate':
+        print('Rotation target not implemented!!')
         img_transformer = get_rot_train_transformers(args)
         dataset = RotateDataset(name, 'train', img_transformer=img_transformer,
                 rot_classes=args.aux_classes, bias_whole_image=args.bias_whole_image)
 
     loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size,
-            shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+            shuffle=True, num_workers=0, pin_memory=True, drop_last=True)
     return loader
 
 # def get_test_dataloader(args):

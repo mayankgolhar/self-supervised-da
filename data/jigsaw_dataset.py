@@ -5,7 +5,6 @@ import torchvision
 import torchvision.transforms as transforms
 from PIL import Image
 from random import sample, random
-from data.dataset_utils import *
 import os
 from os.path import join, dirname
 import re
@@ -13,19 +12,18 @@ import pdb
 import cv2
 
 class JigsawDataset(data.Dataset):
-    def __init__(self, name, split='train', jig_classes=100,
-            img_transformer=None, tile_transformer=None, patches=False, bias_whole_image=None):
+    def __init__(self, name, split='src', jig_classes=100,
+            img_transformer=None, tile_transformer=None, patches=False, bias_whole_image=None, cv_split_id = [0]):
 
         data_path = join(dirname(__file__), '..', 'datasets', name)
-        test_split = 0        
 
         self.split = split
 
-        if split == 'train':
-            is_train = True
-            disp_msg = 'Train Loader :'
+        if split == 'src':            
+            disp_msg = 'Supervised Train Loader :'
+        elif split == 'tar':
+            disp_msg = 'Unsupervised Train Loader :'
         else:
-            is_train = False
             disp_msg = 'Validation Loader :'
 
         # Create a dictionary of classes, videos and respective frames
@@ -46,34 +44,32 @@ class JigsawDataset(data.Dataset):
             split_id = temp.match(split_folder).groups()           
             split_id = int(split_id[-1])
             
-            # Skip split folder if test split during training or train split during testing
-            if (is_train and (split_id == test_split)) or (not is_train and (split_id != test_split)):
-                continue
-            
-            print(disp_msg + split_folder + ' used')
+            # Check if the current split belongs to the required loader
+            if split_id in cv_split_id:
+                print(disp_msg + split_folder + ' used')
 
-            split_path = os.path.join(data_path, split_folder)
+                split_path = os.path.join(data_path, split_folder)
 
-            # Iterate through all class folders
-            for class_name in os.listdir(split_path):               
-                # Iterate through all videos 
-                class_path = os.path.join(split_path, class_name)
+                # Iterate through all class folders
+                for class_name in os.listdir(split_path):               
+                    # Iterate through all videos 
+                    class_path = os.path.join(split_path, class_name)
 
-                for video_name in os.listdir(class_path):
-                    video_path = os.path.join(class_path,video_name)
+                    for video_name in os.listdir(class_path):
+                        video_path = os.path.join(class_path,video_name)
 
-                    if not os.path.isdir(video_path):
-                        continue
-                    label, lesion_id, mode = self.get_video_label_uah(video_name)
+                        if not os.path.isdir(video_path):
+                            continue
+                        label, lesion_id, mode = self.get_video_label_uah(video_name)
 
-                    # Create list of all frames in the video folder
-                    for frame_name in os.listdir(video_path):
-                        frame_path = os.path.join(video_path, frame_name)
-                        self.data_list.append(dict(lesion_id = lesion_id,
-                                                   frame_path = frame_path,
-                                                   label = label,
-                                                   mode = mode
-                                                   ))
+                        # Create list of all frames in the video folder
+                        for frame_name in os.listdir(video_path):
+                            frame_path = os.path.join(video_path, frame_name)
+                            self.data_list.append(dict(lesion_id = lesion_id,
+                                                    frame_path = frame_path,
+                                                    label = label,
+                                                    mode = mode
+                                                    ))
 
         if len(self.data_list):
             print("{} total frames collected".format(len(self.data_list)))

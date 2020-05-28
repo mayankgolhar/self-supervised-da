@@ -40,8 +40,8 @@ def main():
     test_loader = None
 
     tar_loader = None
-    # if config.datasets.get('tar', None):
-    #     tar_loader = get_target_dataloader(config.datasets.tar)
+    if config.datasets.get('tar', None):
+        tar_loader = get_target_dataloader(config.datasets.tar)
 
     if config.mode == 'train':
         model.train(src_loader, tar_loader, val_loader, test_loader)

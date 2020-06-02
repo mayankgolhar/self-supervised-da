@@ -78,7 +78,7 @@ class AuxModel:
             # adjust learning rate
             self.scheduler.step()
 
-            for it, (src_batch, tar_batch) in enumerate(zip(src_loader, tar_loader)):
+            for it, (src_batch, tar_batch) in enumerate(zip(itertools.cycle(src_loader), tar_loader)):
                 t = time.time()
 
                 self.optimizer.zero_grad()
@@ -117,6 +117,8 @@ class AuxModel:
                 tar_aux_logits, _ = self.model(tar_imgs)
                 tar_aux_loss = self.class_loss_func(tar_aux_logits, tar_aux_lbls)
 
+                _, tar_aux_pred = tar_aux_logits.max(dim=1)
+
                 loss = src_class_loss + src_aux_loss * self.args.training.src_aux_weight + \
                     tar_aux_loss * self.args.training.tar_aux_weight
 
@@ -128,7 +130,8 @@ class AuxModel:
                 losses.update(loss.item(), src_imgs.size(0))
                 
                 class_acc = true_pos_class/num_samples_accu
-                aux_acc = torch.sum(aux_pred == src_aux_lbls).to(dtype=torch.float)/src_imgs.size(0)
+                aux_acc = ((torch.sum(aux_pred == src_aux_lbls).to(dtype=torch.float) +
+                    torch.sum(tar_aux_pred == tar_aux_lbls).to(dtype=torch.float))/(src_imgs.size(0) + tar_imgs.size(0)))
 
                 # measure elapsed time
                 batch_time.update(time.time() - t)

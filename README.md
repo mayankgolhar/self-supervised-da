@@ -43,7 +43,7 @@ The configuration files for each experiment can be found at `config/` folder.
 For example:
 
 ```shell
-python3 main.py --config configs/rotate_pacs_photo.yaml
+python3 main.py --config config/jigsaw_uah.yaml
 set CUDA_VISIBLE_DEVICES=0 & python main.py --config config/jigsaw_uah.yaml
 ```
 

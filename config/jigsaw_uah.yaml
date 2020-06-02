@@ -39,7 +39,7 @@ datasets:
         limit: false
         aux_classes: 100
         cv_split_id : [3, 4]
-        bias_whole_image: 0.1
+        bias_whole_image: 0.4
         img_transform:
             jitter: 0
             random_horiz_flip: 0
